@@ -218,7 +218,13 @@ def main() -> None:
             print(f"fetch_failed race={race_id} error={type(error).__name__}", flush=True)
             continue
         if odds:
-            cache["races"][race_id] = {"status": status, "updated": updated, "odds": odds}
+            # first=その日最初に見たオッズ（朝版）、pre=確定前の最後のオッズ（直前版）。結果照合で使う
+            entry.update({"status": status, "updated": updated, "odds": odds})
+            entry.setdefault("first", odds)
+            if status != FINAL_STATUS:
+                entry["pre"] = odds
+                entry["pre_at"] = datetime.now().strftime("%H:%M")
+            cache["races"][race_id] = entry
         time.sleep(0.5)
 
     race_day = date.fromisoformat(args.race_date)
@@ -242,6 +248,9 @@ def main() -> None:
                 for t in dict.fromkeys(horses[0]["track_id"] for horses in races.values()))))
     (out_dir / "index.html").write_text(page, encoding="utf-8")
     cache_path.write_text(json.dumps(cache, ensure_ascii=False), encoding="utf-8")
+    archive = out_dir / "archive" / f"{args.race_date}.json"
+    archive.parent.mkdir(parents=True, exist_ok=True)
+    archive.write_text(json.dumps(cache, ensure_ascii=False), encoding="utf-8")
     print(f"built races={len(races)} with_odds={sum(1 for r in races if cache['races'].get(r))}", flush=True)
 
 

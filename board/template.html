@@ -26,6 +26,7 @@ body{background:var(--bg);color:var(--ink);font:14px/1.5 var(--f-body)}
   padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
 h1{font-size:21px;margin:0;text-wrap:balance}
 .meta{color:var(--sub);font-size:12.5px;margin:4px 0 12px}
+.meta a{color:var(--turf)}
 .note{border-left:3px solid var(--turf);background:var(--card);padding:10px 12px;font-size:12.5px;color:var(--sub);margin:0 0 16px;border-radius:0 6px 6px 0}
 .note b{color:var(--ink)}
 body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--bg)}
@@ -87,7 +88,7 @@ footer{margin-top:24px;font-size:12px;color:var(--sub)}
 </style></head><body>
 <div class="wrap">
 <h1>{{HEADING}}</h1>
-<p class="meta">{{TRACKS}} / {{BUILT_AT}} 更新（発走前は約10分ごとに最新オッズで自動更新）</p>
+<p class="meta">{{TRACKS}} / {{BUILT_AT}} 更新（発走前は約10分ごとに最新オッズで自動更新） / <a href="results.html">これまでの成績</a></p>
 <p class="note"><b>読み方</b> ◎○▲は予測1〜3位、△は4・5位。勝率と3着内率は、客観モデルと単勝オッズを合成した推定値です（オッズの比重は特別・OPが5割、それ以外が7割）。「モデル」列はオッズを使わない客観モデル単独の順位です。過去729レースの検証では、どの買い方も回収率100%に届いていません。<b>購入推奨ではなく、着順予想として見てください。</b></p>
 <nav aria-label="表示切替">
 <button type="button" data-f="all" aria-pressed="true">時刻順</button>

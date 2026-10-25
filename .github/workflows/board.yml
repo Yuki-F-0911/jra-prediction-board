@@ -60,7 +60,7 @@ jobs:
 
           publish() {
             # 履歴を溜めないよう毎回1コミットの孤立ブランチとして強制pushする
-            rm -rf pub && mkdir pub && cp site/index.html site/odds_cache.json pub/ && touch pub/.nojekyll
+            rm -rf pub && mkdir pub && tar --exclude=.git -C site -cf - . | tar -C pub -xf - && touch pub/.nojekyll
             git -C pub init --quiet -b gh-pages
             git -C pub -c user.name="github-actions[bot]" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" \
               add -A
@@ -70,7 +70,7 @@ jobs:
           }
 
           while true; do
-            python code/board/build.py --predictions "$PRED" --out-dir site --race-date "$RACE_DATE" && publish || echo "build_or_publish_failed"
+            python code/board/build.py --predictions "$PRED" --out-dir site --race-date "$RACE_DATE"               && python code/board/results.py --render-only --results-dir code/results --site-dir site               && publish || echo "build_or_publish_failed"
             NOW=$(date +%s)
             if [ "$NOW" -ge "$END_EPOCH" ]; then echo "done"; break; fi
             if [ $((NOW - START)) -ge "$MAX_LOOP_SEC" ]; then

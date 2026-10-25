@@ -1,0 +1,65 @@
+name: results
+
+# 開催日の夕方に確定結果を取り、予測を照合して results/（main）と results.html（gh-pages）を更新する。
+# board と同じ concurrency グループに入れ、当日のページ更新ループが終わってから動くようにする。
+on:
+  schedule:
+    - cron: "40 8 * * 0,6"  # JST 土日 17:40
+    - cron: "0 0 * * 1"     # JST 月 9:00（日曜分の取りこぼし用。前日を照合）
+  workflow_dispatch:
+    inputs:
+      race_date:
+        description: "YYYY-MM-DD（空なら今日、なければ前日）"
+        required: false
+        default: ""
+
+concurrency:
+  group: board
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+env:
+  TZ: Asia/Tokyo
+
+jobs:
+  results:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          path: code
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Evaluate and publish
+        env:
+          REPO_URL: https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git
+        run: |
+          RACE_DATE="${{ inputs.race_date }}"
+          if [ -z "$RACE_DATE" ]; then
+            RACE_DATE="$(date +%F)"
+            [ -f "code/predictions/${RACE_DATE}.csv" ] || RACE_DATE="$(date -d yesterday +%F)"
+            # 定期実行では照合済みの日はやり直さない
+            [ -f "code/results/${RACE_DATE}.json" ] && { echo "already evaluated $RACE_DATE"; exit 0; }
+          fi
+          [ -f "code/predictions/${RACE_DATE}.csv" ] || { echo "no predictions for $RACE_DATE"; exit 0; }
+
+          git clone --quiet --depth 1 --branch gh-pages "$REPO_URL" site
+          cd code
+          python board/results.py --race-date "$RACE_DATE" --predictions "predictions/${RACE_DATE}.csv" \
+            --odds-archive "../site/archive/${RACE_DATE}.json" --results-dir results --site-dir ../site
+
+          BOT=(-c user.name="github-actions[bot]" -c user.email="41898282+github-actions[bot]@users.noreply.github.com")
+          git "${BOT[@]}" add results
+          git "${BOT[@]}" commit --quiet -m "Add results $RACE_DATE" && git push --quiet origin HEAD:main
+          cd ..
+          rm -rf pub && mkdir pub && tar --exclude=.git -C site -cf - . | tar -C pub -xf - && touch pub/.nojekyll
+          git -C pub init --quiet -b gh-pages
+          git -C pub "${BOT[@]}" add -A
+          git -C pub "${BOT[@]}" commit --quiet -m "Update results $RACE_DATE"
+          git -C pub push --quiet --force "$REPO_URL" gh-pages
