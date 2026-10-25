@@ -1,7 +1,10 @@
 """固定したモデル確率と最新の単勝オッズを合成し、予測ページ（index.html）を作る。標準ライブラリのみ。
 
 合成は horse-racing の predict_objective_today_fast と同じ幾何ブレンド:
-    hybrid ∝ objective^(1-w) * market^w   （w=market_weight: 特別・OP 0.5、それ以外 0.7）
+    hybrid ∝ objective^(1-w) * market^w
+w はオッズがあれば 1.0（オッズのみ）、なければ 0.0（モデルのみ）。2026-04〜10の1,469レースで
+w=0〜1 を比べ、w=1.0 が最良だった（horse-racing docs/model_refresh_blend_20261025.md）。
+CSVの market_weight は書き出した時点のものなので使わない（前日に書き出すと 0.0 が固定されるため）。
 市場勝率は正規化した 1/単勝オッズ。オッズ欠損馬は既知馬の最小逆数の半分で埋める。
 """
 
@@ -97,7 +100,7 @@ def blend(horses: list[dict], odds: dict[str, float]) -> None:
         inverse = [1.0] * n
     market_win = normalize(inverse, 1.0)
     market_top3 = normalize([p * 3 for p in market_win], min(3.0, n), clip=1.0)
-    w = float(horses[0]["market_weight"])
+    w = 1.0 if known else 0.0
     win_raw = [max(float(h["win_probability"]), 1e-9) ** (1 - w) * max(p, 1e-9) ** w for h, p in zip(horses, market_win)]
     top3_raw = [max(float(h["top3_probability"]), 1e-9) ** (1 - w) * max(p, 1e-9) ** w for h, p in zip(horses, market_top3)]
     for h, pw, p3 in zip(horses, normalize(win_raw, 1.0), normalize(top3_raw, min(3.0, n))):
