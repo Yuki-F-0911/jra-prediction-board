@@ -1,0 +1,81 @@
+name: board
+
+# 当日の predictions/YYYY-MM-DD.csv があれば、最終レース発走の15分後まで約10分おきに
+# 最新オッズでページを作り直し、gh-pages ブランチ（GitHub Pages）へ出す。
+# 定期実行は遅延・間引きが大きいので、1回のジョブがループし、時間切れ前に後継ジョブを起動する。
+on:
+  push:
+    branches: [main]
+    paths: ["predictions/**", "board/**"]
+  schedule:
+    - cron: "*/20 21-23 * * 5,6"  # JST 土日 6:00-8:40
+    - cron: "17 0-7 * * 0,6"      # JST 土日 9:17-16:17（朝の起動がすべて遅れた場合の保険）
+  workflow_dispatch:
+    inputs:
+      race_date:
+        description: "YYYY-MM-DD（空なら今日・JST）"
+        required: false
+        default: ""
+
+concurrency:
+  group: board
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  actions: write
+
+env:
+  TZ: Asia/Tokyo
+  INTERVAL_SEC: 600
+  MAX_LOOP_SEC: 19800  # 5時間30分で後継へ引き継ぐ
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 355
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          path: code
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Build and publish loop
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO_URL: https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git
+        run: |
+          RACE_DATE="${{ inputs.race_date }}"
+          [ -z "$RACE_DATE" ] && RACE_DATE="$(date +%F)"
+          PRED="code/predictions/${RACE_DATE}.csv"
+          if [ ! -f "$PRED" ]; then echo "no predictions for $RACE_DATE"; exit 0; fi
+
+          git clone --quiet --depth 1 --branch gh-pages "$REPO_URL" site 2>/dev/null || mkdir -p site
+          LAST_POST=$(python code/board/build.py --predictions "$PRED" --out-dir site --race-date "$RACE_DATE" --last-post)
+          END_EPOCH=$(date -d "$RACE_DATE 00:00 + $((LAST_POST + 15)) minutes" +%s)
+          START=$(date +%s)
+
+          publish() {
+            # 履歴を溜めないよう毎回1コミットの孤立ブランチとして強制pushする
+            rm -rf pub && mkdir pub && cp site/index.html site/odds_cache.json pub/ && touch pub/.nojekyll
+            git -C pub init --quiet -b gh-pages
+            git -C pub -c user.name="github-actions[bot]" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" \
+              add -A
+            git -C pub -c user.name="github-actions[bot]" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" \
+              commit --quiet -m "Update board $RACE_DATE $(date +%H:%M)"
+            git -C pub push --quiet --force "$REPO_URL" gh-pages
+          }
+
+          while true; do
+            python code/board/build.py --predictions "$PRED" --out-dir site --race-date "$RACE_DATE" && publish || echo "build_or_publish_failed"
+            NOW=$(date +%s)
+            if [ "$NOW" -ge "$END_EPOCH" ]; then echo "done"; break; fi
+            if [ $((NOW - START)) -ge "$MAX_LOOP_SEC" ]; then
+              gh workflow run board.yml --repo "${{ github.repository }}" -f race_date="$RACE_DATE"
+              echo "handed over"; break
+            fi
+            sleep "$INTERVAL_SEC"
+          done

@@ -1,0 +1,143 @@
+<!doctype html><html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta http-equiv="refresh" content="300">
+<title>{{TITLE}}</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=BIZ+UDPGothic:wght@400;700&family=Roboto+Condensed:wght@500;700&display=swap">
+<style>
+/* 発走時刻順の1カラム。レースごとに折りたためる出馬表、印と枠色は競馬新聞の流儀 */
+:root{
+  --bg:#f3f4f1;--card:#fff;--ink:#1b1f1c;--sub:#646b66;--line:#dfe2dd;
+  --turf:#1f6b45;--turfbg:#e5f1ea;--past:#9aa09b;--next:#b4441c;
+  --tokyo:#2f5d9e;--kyoto:#8a3d6b;--niigata:#3d7f6e;
+  --f-body:"BIZ UDPGothic","Hiragino Sans","Yu Gothic UI",system-ui,sans-serif;
+  --f-num:"Roboto Condensed","Arial Narrow",var(--f-body);
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#121513;--card:#1b1f1c;--ink:#e8ebe8;--sub:#9aa29c;--line:#2c322e;
+  --turf:#6fcf9b;--turfbg:#183326;--past:#5f6661;--next:#ff9466;
+  --tokyo:#8fb3ec;--kyoto:#e7a2cc;--niigata:#86d0bd;color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#121513;--card:#1b1f1c;--ink:#e8ebe8;--sub:#9aa29c;--line:#2c322e;
+  --turf:#6fcf9b;--turfbg:#183326;--past:#5f6661;--next:#ff9466;
+  --tokyo:#8fb3ec;--kyoto:#e7a2cc;--niigata:#86d0bd;color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font:14px/1.5 var(--f-body)}
+.wrap{max-width:760px;margin:0 auto;padding-block:20px 56px;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+h1{font-size:21px;margin:0;text-wrap:balance}
+.meta{color:var(--sub);font-size:12.5px;margin:4px 0 12px}
+.note{border-left:3px solid var(--turf);background:var(--card);padding:10px 12px;font-size:12.5px;color:var(--sub);margin:0 0 16px;border-radius:0 6px 6px 0}
+.note b{color:var(--ink)}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--bg)}
+nav{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--bg);padding:8px 0;display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+nav button{font:inherit;font-size:13px;border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:999px;padding:5px 14px;cursor:pointer}
+nav button[aria-pressed="true"]{background:var(--turf);border-color:var(--turf);color:var(--card);font-weight:700}
+nav button:focus-visible,summary:focus-visible{outline:2px solid var(--turf);outline-offset:2px}
+nav label{margin-left:auto;font-size:12.5px;color:var(--sub);display:flex;gap:4px;align-items:center}
+.list{display:flex;flex-direction:column;gap:8px}
+.list.bytrack .race{order:0}
+.race{background:var(--card);border:1px solid var(--line);border-radius:8px;min-width:0}
+.race.next{border-color:var(--next);box-shadow:0 0 0 1px var(--next)}
+.race.done{opacity:.62}
+.list.hidepast .race.done{display:none}
+summary{list-style:none;cursor:pointer;display:flex;align-items:center;gap:8px;padding:10px 12px;flex-wrap:wrap}
+summary::-webkit-details-marker{display:none}
+.tm{font:700 15px var(--f-num);font-variant-numeric:tabular-nums;width:3.1em}
+.trk{background:var(--sub);font-size:11.5px;font-weight:700;color:var(--card);border-radius:4px;padding:1px 6px}
+.t-tokyo{background:var(--tokyo)}.t-kyoto{background:var(--kyoto)}.t-niigata{background:var(--niigata)}
+.rn{font:700 15px var(--f-num)}
+.rname{font-weight:700;min-width:0}
+.st{font-size:11.5px;font-weight:700}
+.race.next .st::before{content:"次に発走";color:var(--next)}
+.race.done .st::before{content:"発走済";color:var(--past)}
+.pk{margin-left:auto;font:700 14px var(--f-num);color:var(--turf);font-variant-numeric:tabular-nums}
+.pk::before{content:"予想 ";font:400 11px var(--f-body);color:var(--sub)}
+.tw{overflow-x:auto;border-top:1px solid var(--line)}
+table{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums}
+th{font-size:11px;font-weight:400;color:var(--sub);text-align:left;padding:6px 6px 4px;letter-spacing:.04em;white-space:nowrap}
+td{padding:6px;border-top:1px solid var(--line);vertical-align:middle}
+td small{display:block;font-size:11px;color:var(--sub);font-weight:400}
+.mk{width:1.6em;text-align:center;font-size:16px;color:var(--turf);font-weight:700}
+.no{width:2.6em}
+.waku{display:inline-grid;place-items:center;width:1.9em;height:1.9em;border-radius:4px;font:700 13px var(--f-num);border:1px solid #0003}
+.w1{background:#fff;color:#111}.w2{background:#222;color:#fff}.w3{background:#d8333a;color:#fff}.w4{background:#2b62c4;color:#fff}
+.w5{background:#f2d22e;color:#111}.w6{background:#2f9a4b;color:#fff}.w7{background:#f08a24;color:#111}.w8{background:#f19ac0;color:#111}
+.nm b{font-weight:700}
+.od,.pw,.p3{text-align:right;white-space:nowrap;font-family:var(--f-num)}
+.od b{font-size:14px}
+.pw small,.p3 small{display:inline;margin-left:1px}
+.p3{width:7.5em}
+.bar{display:inline-block;width:3.2em;height:6px;background:var(--line);border-radius:3px;margin-right:6px;vertical-align:middle;overflow:hidden}
+.bar i{display:block;height:100%;background:var(--turf)}
+tr.r1 td,tr.r2 td,tr.r3 td{background:var(--turfbg)}
+.src{margin:0;padding:6px 12px 10px;font-size:11.5px;color:var(--sub)}
+.src a{color:var(--turf)}
+footer{margin-top:24px;font-size:12px;color:var(--sub)}
+@media (max-width:480px){.p3 .bar{display:none}.p3{width:auto}th:nth-child(2){font-size:0}}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style></head><body>
+<div class="wrap">
+<h1>{{HEADING}}</h1>
+<p class="meta">{{TRACKS}} / {{BUILT_AT}} 更新（発走前は約10分ごとに最新オッズで自動更新）</p>
+<p class="note"><b>読み方</b> ◎○▲は予測1〜3位、△は4・5位。勝率と3着内率は、客観モデルと単勝オッズを合成した推定値です（オッズの比重は特別・OPが5割、それ以外が7割）。過去729レースの検証では、どの買い方も回収率100%に届いていません。<b>購入推奨ではなく、着順予想として見てください。</b></p>
+<nav aria-label="表示切替">
+<button type="button" data-f="all" aria-pressed="true">時刻順</button>
+{{TRACK_BUTTONS}}
+<label><input type="checkbox" id="hidepast"> 発走済を隠す</label>
+</nav>
+<div class="list" id="list">
+{{CARDS}}
+</div>
+<footer>オッズはYahoo!競馬から取得。発走直前の変動は反映が最大10分ほど遅れます。</footer>
+</div>
+<script>
+(() => {
+  const [Y, M, D] = {{DATE_JSON}}, RD = Y * 10000 + M * 100 + D;
+  const list = document.getElementById("list");
+  const races = [...list.querySelectorAll(".race")];
+  const btns = [...document.querySelectorAll("nav button")];
+  const hide = document.getElementById("hidepast");
+  const setFilter = f => {
+    btns.forEach(b => b.setAttribute("aria-pressed", String(b.dataset.f === f)));
+    races.forEach(r => { r.hidden = f !== "all" && r.dataset.track !== f; });
+    if (f !== "all") {
+      races.filter(r => !r.hidden).sort((a, b) => a.id.localeCompare(b.id, "ja", {numeric: true}))
+        .forEach(r => list.appendChild(r));
+    } else {
+      races.sort((a, b) => a.dataset.min - b.dataset.min || a.id.localeCompare(b.id)).forEach(r => list.appendChild(r));
+    }
+    try { localStorage.setItem("f", f); } catch (e) {}
+  };
+  btns.forEach(b => b.addEventListener("click", () => setFilter(b.dataset.f)));
+  hide.addEventListener("change", () => {
+    list.classList.toggle("hidepast", hide.checked);
+    try { localStorage.setItem("hp", hide.checked ? "1" : ""); } catch (e) {}
+  });
+  const tick = () => {
+    const now = new Date(new Date().toLocaleString("en-US", {timeZone: "Asia/Tokyo"}));
+    const ymd = now.getFullYear() * 10000 + now.getMonth() * 100 + now.getDate();
+    const today = ymd === RD, after = ymd > RD;
+    const m = now.getHours() * 60 + now.getMinutes();
+    let next = null;
+    races.forEach(r => {
+      const done = after || (today && +r.dataset.min <= m);
+      r.classList.toggle("done", done);
+      r.classList.remove("next");
+      if (!done && (!next || +r.dataset.min < +next.dataset.min)) next = r;
+    });
+    if (next && today) races.filter(r => r.dataset.min === next.dataset.min).forEach(r => r.classList.add("next"));
+  };
+  let f = "all";
+  try { f = localStorage.getItem("f") || "all"; hide.checked = localStorage.getItem("hp") === "1"; } catch (e) {}
+  const views = btns.map(b => b.dataset.f);
+  if (!views.includes(f)) f = "all";
+  const h = location.hash.slice(1);
+  if (views.includes(h)) f = h;
+  list.classList.toggle("hidepast", hide.checked);
+  setFilter(f);
+  tick();
+  setInterval(tick, 30000);
+  if (h && document.getElementById(h) && !views.includes(h)) document.getElementById(h).scrollIntoView();
+})();
+</script>
+</body></html>
