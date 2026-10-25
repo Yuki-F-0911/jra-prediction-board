@@ -55,7 +55,16 @@ summary::-webkit-details-marker{display:none}
 .tw{overflow-x:auto;border-top:1px solid var(--line)}
 table{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums}
 th{font-size:11px;font-weight:400;color:var(--sub);text-align:left;padding:6px 6px 4px;letter-spacing:.04em;white-space:nowrap}
-td{padding:6px;border-top:1px solid var(--line);vertical-align:middle}
+td{padding:6px;vertical-align:middle}
+tr.hr td{border-top:1px solid var(--line)}
+tr.fm td{border-top:0;padding:0 6px 7px;font-size:11.5px;color:var(--sub);line-height:1.6}
+tr.fm b{color:var(--ink)}tr.fm b.top{color:var(--next)}
+.lbl{display:inline-block;font-size:10.5px;border:1px solid var(--line);border-radius:3px;padding:0 4px;margin-right:4px;color:var(--sub)}
+.sep{margin:0 8px 0 6px}
+.debut{color:var(--sub)}
+.chg{font-style:normal;font-size:10.5px;color:var(--next);font-weight:700;margin-left:2px}
+.md{text-align:center;font-family:var(--f-num);color:var(--sub);width:3em}
+
 td small{display:block;font-size:11px;color:var(--sub);font-weight:400}
 .mk{width:1.6em;text-align:center;font-size:16px;color:var(--turf);font-weight:700}
 .no{width:2.6em}
@@ -79,7 +88,7 @@ footer{margin-top:24px;font-size:12px;color:var(--sub)}
 <div class="wrap">
 <h1>{{HEADING}}</h1>
 <p class="meta">{{TRACKS}} / {{BUILT_AT}} 更新（発走前は約10分ごとに最新オッズで自動更新）</p>
-<p class="note"><b>読み方</b> ◎○▲は予測1〜3位、△は4・5位。勝率と3着内率は、客観モデルと単勝オッズを合成した推定値です（オッズの比重は特別・OPが5割、それ以外が7割）。過去729レースの検証では、どの買い方も回収率100%に届いていません。<b>購入推奨ではなく、着順予想として見てください。</b></p>
+<p class="note"><b>読み方</b> ◎○▲は予測1〜3位、△は4・5位。勝率と3着内率は、客観モデルと単勝オッズを合成した推定値です（オッズの比重は特別・OPが5割、それ以外が7割）。「モデル」列はオッズを使わない客観モデル単独の順位です。過去729レースの検証では、どの買い方も回収率100%に届いていません。<b>購入推奨ではなく、着順予想として見てください。</b></p>
 <nav aria-label="表示切替">
 <button type="button" data-f="all" aria-pressed="true">時刻順</button>
 {{TRACK_BUTTONS}}

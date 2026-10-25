@@ -15,7 +15,7 @@ import re
 import time
 import urllib.request
 from collections import defaultdict
-from datetime import datetime
+from datetime import date, datetime
 from pathlib import Path
 
 BASE_URL = "https://sports.yahoo.co.jp/keiba/race"
@@ -116,7 +116,32 @@ def minutes(post_time: str) -> int:
     return int(hour) * 60 + int(minute)
 
 
-def render_race(race_id: str, horses: list[dict], entry: dict) -> str:
+def render_form(runs: list[dict], race_date: date) -> str:
+    esc = html.escape
+    if not runs:
+        return '<span class="debut">初出走</span>'
+    last = runs[0]
+    year, month, day = (int(part) for part in last["date"].split("/"))
+    weeks = ((race_date - date(year, month, day)).days + 3) // 7
+    interval = "連闘" if weeks <= 1 else f"中{weeks - 1}週"
+    finish = last["finish"]
+    result = f"{finish}着" if finish.isdigit() else finish
+    top = ' class="top"' if finish in ("1", "2", "3") else ""
+    detail = " ".join(part for part in (
+        f'{month}/{day} {last["track"]}', last["race"], last["course"],
+        f'<b{top}>{esc(result)}</b>' + (f'({esc(last["margin"])})' if last["margin"] else ""),
+        f'{last["field"]}頭{last["popularity"]}人気' if last["field"] else "",
+        f'上り{last["last3f"]}' if last["last3f"] else "",
+        esc(last["jockey"]).replace(" ", ""),
+    ) if part)
+    recent = "-".join(
+        f'<b class="top">{esc(r["finish"])}</b>' if r["finish"] in ("1", "2", "3") else esc(r["finish"] or "?")
+        for r in runs
+    )
+    return f'<span class="lbl">前走</span>{detail}<span class="sep">{interval}</span><span class="lbl">近走</span>{recent}'
+
+
+def render_race(race_id: str, horses: list[dict], entry: dict, race_date: date) -> str:
     esc = html.escape
     first = horses[0]
     track, num, post_time = first["track_id"], int(first["race_number"]), first["post_time"]
@@ -125,26 +150,35 @@ def render_race(race_id: str, horses: list[dict], entry: dict) -> str:
     for h in horses:
         odds = f'{h["odds"]:.1f}' if h["odds"] > 0 else "—"
         pop = f'{h["popularity"]}人気' if h["popularity"] else "オッズなし"
+        runs = json.loads(h.get("form") or "[]")
+        changed = bool(runs) and runs[0]["jockey"].replace(" ", "") != h["jockey_name"].replace(" ", "")
+        jockey = esc(h["jockey_name"]) + (' <em class="chg">乗替</em>' if changed else "")
+        cls = f'r{min(h["rank"], 6)}'
         rows.append(
-            f'<tr class="r{min(h["rank"], 6)}"><td class="mk">{MARKS.get(h["rank"], "")}</td>'
+            f'<tr class="{cls} hr"><td class="mk">{MARKS.get(h["rank"], "")}</td>'
             f'<td class="no"><span class="waku w{esc(h["gate"])}">{esc(h["post_position"])}</span></td>'
-            f'<td class="nm"><b>{esc(h["horse_name"])}</b><small>{esc(h["jockey_name"])}</small></td>'
+            f'<td class="nm"><b>{esc(h["horse_name"])}</b><small>{jockey}</small></td>'
             f'<td class="od"><b>{odds}</b><small>{pop}</small></td>'
             f'<td class="pw">{h["p_win"] * 100:.0f}<small>%</small></td>'
             f'<td class="p3"><span class="bar"><i style="width:{min(h["p_top3"], 1) * 100:.0f}%"></i></span>'
-            f'{h["p_top3"] * 100:.0f}<small>%</small></td></tr>'
+            f'{h["p_top3"] * 100:.0f}<small>%</small></td>'
+            f'<td class="md">{esc(h.get("objective_rank", ""))}</td></tr>'
+            f'<tr class="{cls} fm"><td></td><td colspan="6">{render_form(runs, race_date)}</td></tr>'
         )
     pick = " - ".join(h["post_position"] for h in horses[:3])
     status = entry.get("status") or "オッズ未取得"
     updated = entry.get("updated", "").split(" ")[-1]
     odds_note = f"{status} {updated}更新" if updated else status
+    mapped = first.get("history_mapped", "")
+    if mapped:
+        odds_note += f" · モデルの過去成績データ {mapped}頭"
     return (
         f'<details class="race" open data-track="{key}" data-min="{minutes(post_time)}" id="{key}{num}">'
         f'<summary><span class="tm">{post_time.lstrip("0")}</span><span class="trk t-{key}">{esc(track)}</span>'
         f'<span class="rn">{num}R</span><span class="rname">{esc(first["race_name"].replace("サラ系", ""))}</span>'
         f'<span class="st"></span><span class="pk">{pick}</span></summary>'
         f'<div class="tw"><table><thead><tr><th></th><th>馬番</th><th>馬名 / 騎手</th><th>単勝</th><th>勝率</th>'
-        f'<th>3着内率</th></tr></thead><tbody>{"".join(rows)}</tbody></table></div>'
+        f'<th>3着内率</th><th title="客観モデル単独の順位">モデル</th></tr></thead><tbody>{"".join(rows)}</tbody></table></div>'
         f'<p class="src">{len(horses)}頭 · {esc(odds_note)} · '
         f'<a href="{BASE_URL}/odds/tfw/{race_id}" target="_blank" rel="noopener">オッズ</a> · '
         f'<a href="{BASE_URL}/denma/{race_id}" target="_blank" rel="noopener">出馬表</a></p></details>'
@@ -187,11 +221,12 @@ def main() -> None:
             cache["races"][race_id] = {"status": status, "updated": updated, "odds": odds}
         time.sleep(0.5)
 
+    race_day = date.fromisoformat(args.race_date)
     cards = []
     for race_id, horses in sorted(races.items(), key=lambda item: (minutes(item[1][0]["post_time"]), item[0])):
         entry = cache["races"].get(race_id, {})
         blend(horses, entry.get("odds", {}))
-        cards.append(render_race(race_id, horses, entry))
+        cards.append(render_race(race_id, horses, entry, race_day))
 
     year, month, day = (int(part) for part in args.race_date.split("-"))
     tracks = "・".join(dict.fromkeys(horses[0]["track_id"] for horses in races.values()))
